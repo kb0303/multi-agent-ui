@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { parseTextWithLinks } from "../utils/TextParser";
+import { ChevronRight } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type StepStatus = "idle" | "running" | "done" | "error";
@@ -21,6 +23,7 @@ interface ResearchResult {
   scraped_content: string;
   report: string;
   feedback: string;
+  debate: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -123,7 +126,7 @@ function StatusDot({ status }: { status: StepStatus }) {
   );
 }
 
-// ─── Markdown-ish renderer (lightweight) ─────────────────────────────────────
+// ─── Markdown-ish renderer ─────────────────────────────────────
 function SimpleMarkdown({ text }: { text: string }) {
   const lines = text.split("\n");
   return (
@@ -162,7 +165,7 @@ function SimpleMarkdown({ text }: { text: string }) {
         if (line === "") return <div key={i} className="h-2" />;
         return (
           <p key={i} className="text-[15px] text-[#9090b0] mb-[2px] leading-[1.8]">
-            {line}
+            {parseTextWithLinks(line)}
           </p>
         );
       })}
@@ -177,7 +180,7 @@ export default function Main() {
   const [result, setResult] = useState<ResearchResult | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"report" | "feedback" | "search" | "scraped">("report");
+  const [activeTab, setActiveTab] = useState<"report" | "feedback" | "search" | "scraped" | "debate">("report");
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [stepTimes, setStepTimes] = useState<Record<string, number>>({});
@@ -185,6 +188,7 @@ export default function Main() {
   const startTimeRef = useRef<number>(0);
   const stepStartRef = useRef<Record<string, number>>({});
   const resultsRef = useRef<HTMLDivElement>(null);
+  const [model, setModel] = useState("llama-3.3-70b-versatile");
 
   useEffect(() => {
     return () => {
@@ -206,13 +210,13 @@ export default function Main() {
       prev.map((s) =>
         s.id === id
           ? {
-              ...s,
-              status,
-              result,
-              duration: stepStartRef.current[id]
-                ? Date.now() - stepStartRef.current[id]
-                : undefined,
-            }
+            ...s,
+            status,
+            result,
+            duration: stepStartRef.current[id]
+              ? Date.now() - stepStartRef.current[id]
+              : undefined,
+          }
           : s
       )
     );
@@ -264,7 +268,7 @@ export default function Main() {
       const res = await fetch("http://localhost:8000/api/research", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic }),
+        body: JSON.stringify({ topic, model }),
       });
 
       stepTimers.forEach((t) => clearTimeout(t));
@@ -314,7 +318,7 @@ export default function Main() {
 
       {/* ── Header ── */}
       <header className="border-b border-[#1a1a2e] bg-[rgba(8,8,16,0.95)] backdrop-blur-[12px] sticky top-0 z-[100]">
-        <div className="max-w-[1100px] mx-auto px-6 py-[14px] flex items-center justify-between">
+        <div className="mx-auto px-8 py-[14px] flex items-center justify-between">
           <div className="flex items-center gap-[10px]">
             <span className="text-[22px] text-[#f59e0b]">⬡</span>
             <span className="font-['Syne',_sans-serif] font-bold text-[18px] tracking-[-0.02em] text-[#f1f1f9]">
@@ -325,14 +329,14 @@ export default function Main() {
             <span className="text-[11px] font-medium px-[10px] py-[3px] rounded-[20px] bg-[#13131f] border border-[#2a2a3e] text-[#9090b0] tracking-[0.04em] uppercase">
               Multi-Agent Pipeline
             </span>
-            <span className="text-[11px] font-medium px-[10px] py-[3px] rounded-[20px] bg-[#13131f] border border-[#2a2a3e] text-[#9090b0] tracking-[0.04em] uppercase">
+            {/* <span className="text-[11px] font-medium px-[10px] py-[3px] rounded-[20px] bg-[#13131f] border border-[#2a2a3e] text-[#9090b0] tracking-[0.04em] uppercase">
               4 Agents
-            </span>
+            </span> */}
           </div>
         </div>
       </header>
 
-      <main className="max-w-[1100px] mx-auto px-6 pb-20">
+      <main className="mx-auto px-6 pb-20">
 
         {/* ── Hero ── */}
         <section className="text-center pt-[72px] pb-[56px] animate-[fadeIn_0.5s_ease]">
@@ -344,39 +348,69 @@ export default function Main() {
             <br />
             research today?
           </h1>
-          <p className="text-[16px] text-[#6b7280] leading-[1.7] max-w-[560px] mx-auto mb-10">
+          <p className="text-[16px] text-[#6b7280] leading-[1.7] max-w-[600px] mx-auto mb-10">
             Enter any topic and watch four specialized AI agents collaborate — searching,
             scraping, writing, and critiquing — to deliver a thorough research report.
           </p>
 
           {/* Input */}
-          <div className="flex gap-3 max-w-[720px] mx-auto mb-6 items-start">
+          <div className="relative max-w-[720px] mx-auto">
+
+            {/* Textarea */}
             <textarea
-              className="flex-1 bg-[#0e0e1c] border border-[#2a2a3e] rounded-[12px] px-[18px] py-[14px] text-[15px] text-[#e2e2f0] font-['Inter',_sans-serif] leading-[1.6] transition-all duration-200 resize-y focus:outline-none focus:border-[#f59e0b] focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+              className="w-full bg-[#0e0e1c] border border-[#2a2a3e] rounded-[14px]
+    px-[18px] pt-[16px] pb-[56px] text-[15px] text-[#e2e2f0]
+    font-['Inter',_sans-serif] leading-[1.6]
+    transition-all duration-200 resize-y focus:outline-none
+    focus:border-[#f59e0b]
+    focus:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="e.g. The economic impact of autonomous vehicles by 2030"
-              rows={2}
+              rows={3}
               disabled={isRunning}
             />
-            <button
-              className={`bg-[#f59e0b] text-[#0a0800] border-0 rounded-[12px] px-6 py-[14px] text-[15px] font-semibold whitespace-nowrap transition-all shrink-0 ${
-                !topic.trim() || isRunning
-                  ? "opacity-50 cursor-not-allowed"
-                  : "cursor-pointer hover:brightness-110"
-              }`}
-              onClick={runPipeline}
-              disabled={!topic.trim() || isRunning}
-            >
-              {isRunning ? (
-                <span className="flex items-center gap-2">
-                  <Spinner /> Running...
-                </span>
-              ) : (
-                "Run Research →"
-              )}
-            </button>
+
+            {/* Bottom Bar */}
+            <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+
+              {/* Model Selector */}
+              <div className="relative">
+                <select
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  className="bg-[#13131f] border border-[#2a2a3e]
+        rounded-[10px] px-3 py-[6px] text-[12px]
+        text-[#c0c0d0] font-medium cursor-pointer
+        hover:border-[#4a4a5e] transition-all
+        focus:outline-none"
+                >
+                  <option value="llama-3.3-70b-versatile">🧠 LLaMA 3.3 70B</option>
+                  <option value="mixtral-8x7b">⚡ Mixtral 8x7B</option>
+                </select>
+              </div>
+
+              {/* Run Button */}
+              <button
+                className={`ml-2 bg-[#f59e0b] text-[#0a0800]
+      rounded-[10px] px-4 py-[8px] text-[13px] font-semibold
+      transition-all ${!topic.trim() || isRunning
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:brightness-110 cursor-pointer"
+                  }`}
+                onClick={runPipeline}
+                disabled={!topic.trim() || isRunning}
+              >
+                {isRunning ? "Running Research..." :
+                  <div className="flex items-center justify-center">
+                    <span>Research</span>
+                    <ChevronRight className="inline w-4 h-4" />
+                  </div>
+                }
+              </button>
+
+            </div>
           </div>
 
           {/* Examples */}
@@ -562,17 +596,16 @@ export default function Main() {
 
             {/* Tabs */}
             <div className="flex gap-1 border-b border-[#1e1e2e] overflow-x-auto">
-              {(["report", "search", "scraped", "feedback"] as const).map((tab) => (
+              {(["report", "search", "scraped", "feedback", "debate"] as const).map((tab) => (
                 <button
                   key={tab}
-                  className={`px-[18px] py-[10px] text-[13px] font-medium bg-transparent border-0 border-b-2 border-solid whitespace-nowrap transition-all duration-200 font-['Inter',_sans-serif] ${
-                    activeTab === tab
-                      ? "text-[#f59e0b] border-b-[#f59e0b]"
-                      : "text-[#6b7280] border-b-transparent cursor-pointer hover:text-[#9090b0]"
-                  }`}
+                  className={`px-[18px] py-[10px] text-[13px] font-medium bg-transparent border-0 border-b-2 border-solid whitespace-nowrap transition-all duration-200 font-['Inter',_sans-serif] ${activeTab === tab
+                    ? "text-[#f59e0b] border-b-[#f59e0b]"
+                    : "text-[#6b7280] border-b-transparent cursor-pointer hover:text-[#9090b0]"
+                    }`}
                   onClick={() => setActiveTab(tab)}
                 >
-                  {{ report: "📋 Report", search: "🔍 Search Data", scraped: "📄 Scraped Content", feedback: "🧐 Feedback" }[tab]}
+                  {{ report: "📋 Report", search: "🔍 Search Data", scraped: "📄 Scraped Content", feedback: "🧐 Feedback", debate: "⚔️ Debate" }[tab]}
                 </button>
               ))}
             </div>
@@ -620,7 +653,7 @@ export default function Main() {
                     <CopyButton text={result.search_results} />
                   </div>
                   <pre className="font-['JetBrains_Mono',_monospace] text-[12px] leading-[1.8] text-[#9090b0] whitespace-pre-wrap break-words m-0">
-                    {result.search_results}
+                    {parseTextWithLinks(result.search_results)}
                   </pre>
                 </div>
               )}
@@ -634,17 +667,63 @@ export default function Main() {
                     <CopyButton text={result.scraped_content} />
                   </div>
                   <pre className="font-['JetBrains_Mono',_monospace] text-[12px] leading-[1.8] text-[#9090b0] whitespace-pre-wrap break-words m-0">
-                    {result.scraped_content}
+                    {parseTextWithLinks(result.scraped_content)}
                   </pre>
                 </div>
               )}
+
+              {activeTab === "debate" && (() => {
+                const { optimist, skeptic } = parseDebate(result.debate);
+
+                return (
+                  <div>
+                    {/* Header */}
+                    <div className="flex gap-4 items-start bg-[#0d0d20] border border-[#2a2a3e] rounded-[12px] px-5 py-4 mb-6">
+                      <span className="text-[24px]">⚔️</span>
+                      <div>
+                        <strong className="text-[15px]">Debate Mode</strong>
+                        <p className="mt-1 text-[13px] text-[#9ca3af]">
+                          Optimist vs Skeptic perspectives on the topic
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Split View */}
+                    <div className="grid md:grid-cols-2 gap-4">
+
+                      {/* Optimist */}
+                      <div className="bg-[#062e1f] border border-[#10b981] rounded-[14px] p-5">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-[18px]">🟢</span>
+                          <h3 className="font-semibold text-[#10b981]">Optimist View</h3>
+                        </div>
+                        <div className="text-[#a7f3d0] text-[14px] leading-[1.7]">
+                          <SimpleMarkdown text={optimist} />
+                        </div>
+                      </div>
+
+                      {/* Skeptic */}
+                      <div className="bg-[#2a0a0a] border border-[#ef4444] rounded-[14px] p-5">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-[18px]">🔴</span>
+                          <h3 className="font-semibold text-[#ef4444]">Skeptic View</h3>
+                        </div>
+                        <div className="text-[#fca5a5] text-[14px] leading-[1.7]">
+                          <SimpleMarkdown text={skeptic} />
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </section>
         )}
       </main>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-[#1a1a2e] px-6 py-5 flex justify-between text-[12px] text-[#3a3a5a] font-['JetBrains_Mono',_monospace] max-w-[1100px] mx-auto">
+      <footer className="border-t border-[#1a1a2e] px-6 py-5 flex justify-between text-[12px] text-[#3a3a5a] font-['JetBrains_Mono',_monospace] mx-auto">
         <span>ResearchOS — Multi-Agent AI System</span>
         <span className="opacity-40">FastAPI + LangChain + Next.js</span>
       </footer>
