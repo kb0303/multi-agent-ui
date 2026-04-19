@@ -23,13 +23,17 @@ export function parseTextWithLinks(text: string) {
 
 
 export function parseDebate(text: string) {
-  const optimistMatch = text.split("🔴 Skeptic View:");
-  
-  const optimistPart = optimistMatch[0]?.replace("🟢 Optimist View:", "").trim();
-  const skepticPart = optimistMatch[1]?.trim();
+  const optimistRegex =
+    /optimist\s*view\s*:?\s*([\s\S]*?)(?=skeptic\s*view\s*:|$)/i;
+
+  const skepticRegex =
+    /skeptic\s*view\s*:?\s*([\s\S]*)/i;
+
+  const optimistMatch = text.match(optimistRegex);
+  const skepticMatch = text.match(skepticRegex);
 
   return {
-    optimist: optimistPart || "",
-    skeptic: skepticPart || "",
+    optimist: optimistMatch?.[1]?.trim() || "",
+    skeptic: skepticMatch?.[1]?.trim() || "",
   };
 }

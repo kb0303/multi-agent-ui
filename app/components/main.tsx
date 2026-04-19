@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { parseTextWithLinks } from "../utils/TextParser";
+import { parseDebate, parseTextWithLinks } from "../utils/TextParser";
 import { ChevronRight } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeExternalLinks from "rehype-external-links";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type StepStatus = "idle" | "running" | "done" | "error";
@@ -73,7 +76,7 @@ const INITIAL_STEPS: PipelineStep[] = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function wordCount(text: string) {
-  return text.trim().split(/\s+/).filter(Boolean).length;
+  return text?.trim().split(/\s+/).filter(Boolean).length;
 }
 
 function getStepCardClass(status: StepStatus): string {
@@ -126,51 +129,8 @@ function StatusDot({ status }: { status: StepStatus }) {
   );
 }
 
-// ─── Markdown-ish renderer ─────────────────────────────────────
-function SimpleMarkdown({ text }: { text: string }) {
-  const lines = text.split("\n");
-  return (
-    <div className="leading-[1.8]">
-      {lines.map((line, i) => {
-        if (line.startsWith("# "))
-          return (
-            <h1 key={i} className="font-['Syne',_sans-serif] text-[26px] font-bold text-[#f1f1f9] mt-6 mb-3 tracking-[-0.02em]">
-              {line.slice(2)}
-            </h1>
-          );
-        if (line.startsWith("## "))
-          return (
-            <h2 key={i} className="font-['Syne',_sans-serif] text-[20px] font-bold text-[#e2e2f0] mt-5 mb-[10px] tracking-[-0.01em] pb-2 border-b border-[#1e1e2e]">
-              {line.slice(3)}
-            </h2>
-          );
-        if (line.startsWith("### "))
-          return (
-            <h3 key={i} className="font-['Syne',_sans-serif] text-[16px] font-semibold text-[#c8c8e0] mt-4 mb-2">
-              {line.slice(4)}
-            </h3>
-          );
-        if (line.startsWith("- ") || line.startsWith("* "))
-          return (
-            <li key={i} className="text-[15px] text-[#9090b0] ml-5 mb-1 leading-[1.7] list-disc">
-              {line.slice(2)}
-            </li>
-          );
-        if (line.startsWith("**") && line.endsWith("**"))
-          return (
-            <p key={i} className="text-[15px] text-[#9090b0] mb-[2px] leading-[1.8] font-semibold">
-              {line.slice(2, -2)}
-            </p>
-          );
-        if (line === "") return <div key={i} className="h-2" />;
-        return (
-          <p key={i} className="text-[15px] text-[#9090b0] mb-[2px] leading-[1.8]">
-            {parseTextWithLinks(line)}
-          </p>
-        );
-      })}
-    </div>
-  );
+function cleanAIOutput(text: string) {
+  return text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -255,7 +215,7 @@ export default function Main() {
           stepStartRef.current[id] = Date.now();
           setSteps((prev) =>
             prev.map((s) => {
-              if (s.id === prevId && s.status === "running") return { ...s, status: "running" };
+              if (s.id === prevId && s.status === "running") return { ...s, status: "done" };
               if (s.id === id) return { ...s, status: "running" };
               return s;
             })
@@ -318,15 +278,15 @@ export default function Main() {
 
       {/* ── Header ── */}
       <header className="border-b border-[#1a1a2e] bg-[rgba(8,8,16,0.95)] backdrop-blur-[12px] sticky top-0 z-[100]">
-        <div className="mx-auto px-8 py-[14px] flex items-center justify-between">
+        <div className="mx-auto px-4 md:px-8 py-[14px] flex items-center justify-between">
           <div className="flex items-center gap-[10px]">
             <span className="text-[22px] text-[#f59e0b]">⬡</span>
-            <span className="font-['Syne',_sans-serif] font-bold text-[18px] tracking-[-0.02em] text-[#f1f1f9]">
-              ResearchOS
+            <span className="font-['Syne',_sans-serif] font-bold text-[16.5px] md:text-[18px] tracking-[-0.02em] text-[#f1f1f9]">
+              Research
             </span>
           </div>
           <div className="flex gap-2">
-            <span className="text-[11px] font-medium px-[10px] py-[3px] rounded-[20px] bg-[#13131f] border border-[#2a2a3e] text-[#9090b0] tracking-[0.04em] uppercase">
+            <span className="text-[10px] md:text-[11px] font-medium px-[10px] py-[3px] rounded-[20px] bg-[#13131f] border border-[#2a2a3e] text-[#9090b0] tracking-[0.04em] uppercase">
               Multi-Agent Pipeline
             </span>
             {/* <span className="text-[11px] font-medium px-[10px] py-[3px] rounded-[20px] bg-[#13131f] border border-[#2a2a3e] text-[#9090b0] tracking-[0.04em] uppercase">
@@ -339,7 +299,7 @@ export default function Main() {
       <main className="mx-auto px-6 pb-20">
 
         {/* ── Hero ── */}
-        <section className="text-center pt-[72px] pb-[56px] animate-[fadeIn_0.5s_ease]">
+        <section className="text-center pt-[60px] md:pt-[72px] pb-[56px] animate-[fadeIn_0.5s_ease]">
           <p className="text-[12px] tracking-[0.16em] uppercase text-[#f59e0b] font-semibold mb-4">
             AI-Powered Research Pipeline
           </p>
@@ -386,8 +346,13 @@ export default function Main() {
         hover:border-[#4a4a5e] transition-all
         focus:outline-none"
                 >
-                  <option value="llama-3.3-70b-versatile">🧠 LLaMA 3.3 70B</option>
-                  <option value="mixtral-8x7b">⚡ Mixtral 8x7B</option>
+                  <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile</option>
+                  <option value="llama-3.1-8b-instant">llama-3.1-8b-instant</option>
+                  {/* <option value="meta-llama/llama-4-scout-17b-16e-instruct">meta-llama/llama-4-scout-17b-16e-instruct</option> */}
+                  <option value="qwen/qwen3-32b">qwen/qwen3-32b</option>
+                  <option value="openai/gpt-oss-120b">openai/gpt-oss-120b</option>
+                  <option value="openai/gpt-oss-20b">openai/gpt-oss-20b</option>
+                  <option value="openai/gpt-oss-safeguard-20b">openai/gpt-oss-safeguard-20b</option>
                 </select>
               </div>
 
@@ -412,26 +377,27 @@ export default function Main() {
 
             </div>
           </div>
-
-          {/* Examples */}
-          <div className="flex items-start gap-3 max-w-[720px] mx-auto flex-wrap justify-center">
-            <span className="text-[12px] text-[#6b7280] tracking-[0.04em] uppercase pt-[6px] shrink-0">
-              Try an example:
-            </span>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {EXAMPLE_TOPICS.map((t) => (
-                <button
-                  key={t}
-                  className="bg-[#0e0e1c] border border-[#2a2a3e] rounded-[20px] px-[14px] py-[5px] text-[13px] text-[#9090b0] cursor-pointer transition-all hover:border-[#4a4a5e] hover:text-[#c0c0d0] disabled:opacity-50 disabled:cursor-not-allowed font-['Inter',_sans-serif]"
-                  onClick={() => setTopic(t)}
-                  disabled={isRunning}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
         </section>
+
+        {/* {(!isRunning || !result || !error) */}
+        {/* Examples */}
+        <div className="flex items-start gap-3 max-w-[720px] mx-auto flex-wrap justify-center">
+          <span className="text-[12px] text-[#6b7280] tracking-[0.04em] uppercase pt-[6px] shrink-0">
+            Try an example:
+          </span>
+          <div className="flex flex-wrap gap-2 justify-center">
+            {EXAMPLE_TOPICS.map((t) => (
+              <button
+                key={t}
+                className="bg-[#0e0e1c] border border-[#2a2a3e] rounded-[20px] px-[14px] py-[5px] text-[13px] text-[#9090b0] cursor-pointer transition-all hover:border-[#4a4a5e] hover:text-[#c0c0d0] disabled:opacity-50 disabled:cursor-not-allowed font-['Inter',_sans-serif]"
+                onClick={() => setTopic(t)}
+                disabled={isRunning}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* ── Pipeline Steps ── */}
         {(isRunning || result || error) && (
@@ -611,7 +577,7 @@ export default function Main() {
             </div>
 
             {/* Tab content */}
-            <div className="bg-[#0a0a14] border border-[#1e1e2e] border-t-0 rounded-b-[14px] px-8 py-7 min-h-[300px]">
+            <div className="bg-[#0a0a14] border border-[#1e1e2e] border-t-0 rounded-b-[14px] px-8 py-7 min-h-[300px] w-fit">
               {activeTab === "report" && (
                 <div>
                   <div className="flex justify-between items-start mb-7 gap-4 flex-wrap">
@@ -623,9 +589,17 @@ export default function Main() {
                         Topic: <em>{topic}</em>
                       </p>
                     </div>
-                    <CopyButton text={result.report} />
+                    <CopyButton text={cleanAIOutput(result.report)} />
                   </div>
-                  <SimpleMarkdown text={result.report} />
+                  {/* <SimpleMarkdown text={result.report} /> */}
+                  <div className="prose prose-invert max-w-none break-words">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[[rehypeExternalLinks, { target: "_blank" }]]}
+                    >
+                      {cleanAIOutput(result.report)}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               )}
 
@@ -640,7 +614,14 @@ export default function Main() {
                       </p>
                     </div>
                   </div>
-                  <SimpleMarkdown text={result.feedback} />
+                  <div className="prose prose-invert max-w-none break-words">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[[rehypeExternalLinks, { target: "_blank" }]]}
+                    >
+                      {cleanAIOutput(result.feedback)}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               )}
 
@@ -650,11 +631,19 @@ export default function Main() {
                     <span className="text-[12px] font-['JetBrains_Mono',_monospace] text-[#6b7280] uppercase tracking-[0.08em]">
                       Raw Search Agent Output
                     </span>
-                    <CopyButton text={result.search_results} />
+                    <CopyButton text={cleanAIOutput(result.search_results)} />
                   </div>
-                  <pre className="font-['JetBrains_Mono',_monospace] text-[12px] leading-[1.8] text-[#9090b0] whitespace-pre-wrap break-words m-0">
+                  {/* <pre className="font-['JetBrains_Mono',_monospace] text-[12px] leading-[1.8] text-[#9090b0] whitespace-pre-wrap break-words m-0">
                     {parseTextWithLinks(result.search_results)}
-                  </pre>
+                  </pre> */}
+                  <div className="prose prose-invert max-w-none break-words">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[[rehypeExternalLinks, { target: "_blank" }]]}
+                    >
+                      {cleanAIOutput(result.search_results)}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               )}
 
@@ -664,11 +653,17 @@ export default function Main() {
                     <span className="text-[12px] font-['JetBrains_Mono',_monospace] text-[#6b7280] uppercase tracking-[0.08em]">
                       Raw Scraped Content
                     </span>
-                    <CopyButton text={result.scraped_content} />
+                    <CopyButton text={cleanAIOutput(result.scraped_content)} />
                   </div>
-                  <pre className="font-['JetBrains_Mono',_monospace] text-[12px] leading-[1.8] text-[#9090b0] whitespace-pre-wrap break-words m-0">
-                    {parseTextWithLinks(result.scraped_content)}
-                  </pre>
+
+                  <div className="prose prose-invert max-w-none break-words">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[[rehypeExternalLinks, { target: "_blank" }]]}
+                    >
+                      {cleanAIOutput(result.scraped_content)}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               )}
 
@@ -698,7 +693,9 @@ export default function Main() {
                           <h3 className="font-semibold text-[#10b981]">Optimist View</h3>
                         </div>
                         <div className="text-[#a7f3d0] text-[14px] leading-[1.7]">
-                          <SimpleMarkdown text={optimist} />
+                          <div className="prose prose-invert max-w-none break-words">
+                            <ReactMarkdown>{cleanAIOutput(optimist)}</ReactMarkdown>
+                          </div>
                         </div>
                       </div>
 
@@ -709,7 +706,9 @@ export default function Main() {
                           <h3 className="font-semibold text-[#ef4444]">Skeptic View</h3>
                         </div>
                         <div className="text-[#fca5a5] text-[14px] leading-[1.7]">
-                          <SimpleMarkdown text={skeptic} />
+                          <div className="prose prose-invert max-w-none break-words">
+                            <ReactMarkdown>{cleanAIOutput(skeptic)}</ReactMarkdown>
+                          </div>
                         </div>
                       </div>
 

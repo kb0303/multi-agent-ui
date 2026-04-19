@@ -24,3 +24,29 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+
+.prose pre {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-x: auto;
+}
+
+.prose code {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+}
+
+table,
+th,
+td {
+  border: 1px solid whitesmoke;
+  padding: 4px;
+}
