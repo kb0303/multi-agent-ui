@@ -225,7 +225,7 @@ export default function Main() {
     }
 
     try {
-      const res = await fetch("http://localhost:8000/api/research", {
+      const res = await fetch(`${process.env.VITE_API_URL}/research`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic, model }),
