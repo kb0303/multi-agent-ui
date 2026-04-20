@@ -512,7 +512,7 @@ export default function Main() {
                 <p className="mt-[6px] text-[13px] text-[#f87171]">
                   Make sure your FastAPI server is running at{" "}
                   <code className="bg-[#2a1515] px-[6px] py-[1px] rounded">
-                    http://localhost:8000
+                    {`${process.env.VITE_API_URL}`}
                   </code>
                 </p>
               </div>
