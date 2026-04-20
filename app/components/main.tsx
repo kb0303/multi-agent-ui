@@ -139,7 +139,7 @@ export default function Main() {
   const [steps, setSteps] = useState<PipelineStep[]>(INITIAL_STEPS);
   const [result, setResult] = useState<ResearchResult | null>(null);
   const [isRunning, setIsRunning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"report" | "feedback" | "search" | "scraped" | "debate">("report");
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -224,8 +224,13 @@ export default function Main() {
       );
     }
 
+    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+    if (!API_URL) {
+      throw new Error("NEXT_PUBLIC_API_URL is missing");
+    }
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/research`, {
+      const res = await fetch(`${API_URL}/research`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic, model }),
@@ -233,8 +238,16 @@ export default function Main() {
 
       stepTimers.forEach((t) => clearTimeout(t));
 
-      if (!res.ok) throw new Error(`Server error ${res.status}: ${res.statusText}`);
+      // if (!res.ok) throw new Error(`Server error ${res.status}: ${res.statusText}`);
       const data: ResearchResult = await res.json();
+
+      if (!res.ok) {
+        throw {
+          status: res.status,
+          ...data,
+        };
+      }
+      // const data: ResearchResult = await res.json();
 
       const now = Date.now();
       const totalMs = now - startTimeRef.current;
@@ -253,10 +266,11 @@ export default function Main() {
       ]);
       setResult(data);
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth" }), 300);
-    } catch (err: unknown) {
+
+    } catch (err: any) {
+
       stepTimers.forEach((t) => clearTimeout(t));
-      const msg = err instanceof Error ? err.message : "An unexpected error occurred.";
-      setError(msg);
+      setError(err);
       setSteps((prev) =>
         prev.map((s) => (s.status === "running" ? { ...s, status: "error" } : s))
       );
@@ -507,14 +521,25 @@ export default function Main() {
 
             {error && (
               <div className="mt-4 bg-[#1a0808] border border-[#7f1d1d] rounded-[12px] px-5 py-4 text-[#fca5a5]">
-                <strong>Pipeline Error</strong>
-                <p className="mt-[6px] text-[14px] opacity-85">{error}</p>
-                <p className="mt-[6px] text-[13px] text-[#f87171]">
-                  Make sure your FastAPI server is running at{"   "}
-                  <code className="bg-[#2a1515] px-[6px] py-[1px] rounded">
-                    {`${process.env.NEXT_PUBLIC_API_URL}`}
-                  </code>
+                <strong>
+                  {error.type === "rate_limit"
+                    ? "Rate Limit Hit"
+                    : error.type === "token_limit"
+                      ? "Token Limit Exceeded"
+                      : error.type === "auth_error"
+                        ? "Authentication Error"
+                        : "Pipeline Error"}
+                </strong>
+
+                <p className="mt-[6px] text-[14px] opacity-85">
+                  {error.message}
                 </p>
+
+                {error.suggestion && (
+                  <p className="mt-[6px] text-[13px] text-[#f87171]">
+                    💡 {error.suggestion}
+                  </p>
+                )}
               </div>
             )}
           </section>
