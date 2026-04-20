@@ -6,6 +6,7 @@ import { ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeExternalLinks from "rehype-external-links";
+import Image from "next/image";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type StepStatus = "idle" | "running" | "done" | "error";
@@ -313,13 +314,13 @@ export default function Main() {
       <main className="mx-auto px-6 pb-20">
 
         {/* ── Hero ── */}
-        <section className="text-center pt-[60px] md:pt-[72px] pb-[56px] animate-[fadeIn_0.5s_ease]">
+        <section className="text-center pt-[60px] md:pt-[72px] pb-[40px] lg:pb-[56px] animate-[fadeIn_0.5s_ease]">
           <p className="text-[12px] tracking-[0.16em] uppercase text-[#f59e0b] font-semibold mb-4">
             AI-Powered Research Pipeline
           </p>
           <h1 className="font-['Syne',_sans-serif] text-[clamp(36px,5vw,56px)] font-bold leading-[1.12] tracking-[-0.03em] mb-5 bg-gradient-to-br from-[#f1f1f9] to-[#9090c0] bg-clip-text text-transparent">
             What do you want to
-            <br />
+            <br className="hidden lg:block" />
             research today?
           </h1>
           <p className="text-[16px] text-[#6b7280] leading-[1.7] max-w-[600px] mx-auto mb-10">
@@ -350,11 +351,11 @@ export default function Main() {
             <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
 
               {/* Model Selector */}
-              <div className="relative">
+              <div className="relative w-full md:w-none flex flex-col items-start">
                 <select
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  className="bg-[#13131f] border border-[#2a2a3e]
+                  className="bg-[#13131f] border border-[#2a2a3e] w-full md:w-auto
         rounded-[10px] px-3 py-[6px] text-[12px]
         text-[#c0c0d0] font-medium cursor-pointer
         hover:border-[#4a4a5e] transition-all
@@ -383,7 +384,7 @@ export default function Main() {
               >
                 {isRunning ? "Running Research..." :
                   <div className="flex items-center justify-center">
-                    <span>Research</span>
+                    <span className="hidden md:block">Research</span>
                     <ChevronRight className="inline w-4 h-4" />
                   </div>
                 }
@@ -399,7 +400,7 @@ export default function Main() {
           <span className="text-[12px] text-[#6b7280] tracking-[0.04em] uppercase pt-[6px] shrink-0">
             Try an example:
           </span>
-          <div className="flex flex-wrap gap-2 justify-center">
+          <div className="flex flex-wrap gap-3 lg:gap-2 justify-center">
             {EXAMPLE_TOPICS.map((t) => (
               <button
                 key={t}
@@ -415,7 +416,7 @@ export default function Main() {
 
         {/* ── Pipeline Steps ── */}
         {(isRunning || result || error) && (
-          <section className="mb-12 animate-[fadeIn_0.4s_ease]">
+          <section className="mb-12 animate-[fadeIn_0.4s_ease] mt-12 lg:mt-2">
             <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
               <h2 className="font-['Syne',_sans-serif] text-[22px] font-bold m-0 tracking-[-0.02em] text-[#f1f1f9]">
                 Pipeline Status
@@ -590,7 +591,7 @@ export default function Main() {
               {(["report", "search", "scraped", "feedback", "debate"] as const).map((tab) => (
                 <button
                   key={tab}
-                  className={`px-[18px] py-[10px] text-[13px] font-medium bg-transparent border-0 border-b-2 border-solid whitespace-nowrap transition-all duration-200 font-['Inter',_sans-serif] ${activeTab === tab
+                  className={`border-r border-[#1e1e2e] px-[18px] py-[10px] text-[13px] font-medium bg-transparent border-0 border-b-2 border-solid whitespace-nowrap transition-all duration-200 font-['Inter',_sans-serif] ${activeTab === tab
                     ? "text-[#f59e0b] border-b-[#f59e0b]"
                     : "text-[#6b7280] border-b-transparent cursor-pointer hover:text-[#9090b0]"
                     }`}
@@ -602,7 +603,7 @@ export default function Main() {
             </div>
 
             {/* Tab content */}
-            <div className="bg-[#0a0a14] border border-[#1e1e2e] border-t-0 rounded-b-[14px] px-8 py-7 min-h-[300px] w-fit">
+            <div className="bg-[#0a0a14] border border-[#1e1e2e] border-t-0 rounded-b-[14px] px-6 lg:px-8 py-7 min-h-[300px] w-fit max-w-[100%]">
               {activeTab === "report" && (
                 <div>
                   <div className="flex justify-between items-start mb-7 gap-4 flex-wrap">
@@ -747,9 +748,22 @@ export default function Main() {
       </main>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-[#1a1a2e] px-6 py-5 flex justify-between text-[12px] text-[#3a3a5a] font-['JetBrains_Mono',_monospace] mx-auto">
-        <span>ResearchOS — Multi-Agent AI System</span>
-        <span className="opacity-40">FastAPI + LangChain + Next.js</span>
+      <footer className="border-t border-[#1a1a2e] px-6 py-5 flex justify-center lg:justify-between text-[12px] text-[#3a3a5a] font-['JetBrains_Mono',_monospace] mx-auto">
+        <div className="hidden lg:block">ResearchOS — Multi-Agent AI System</div>
+        <div className="text-white flex items-center gap-3">
+          <div className="flex items-center justify-center">
+            <Image src="/fastapi-logo.png" alt="FastAPI" width={18} height={18} className="mx-2" />
+            <span>FastAPI</span>
+          </div>
+          <div className="flex items-center justify-center">
+            <Image src="/langchain-logo.png" alt="LangChain" width={18} height={18} className="mx-2" />
+            <span>LangChain</span>
+          </div>
+          <div className="flex items-center justify-center">
+            <Image src="/nextjs-logo.png" alt="Next.js" width={19} height={19} className="mx-2 filter invert" />
+            <span>Next.js</span>
+          </div>
+        </div>
       </footer>
 
       {/* ── Keyframes only — cannot live in Tailwind without modifying tailwind.config ── */}

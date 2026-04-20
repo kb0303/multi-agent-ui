@@ -40,13 +40,75 @@ body {
 table {
   width: 100%;
   border-collapse: collapse !important;
+  overflow-x: auto !important;
   white-space: pre-wrap !important;
   word-break: break-word !important;
+  margin: 20px 0;
 }
 
 table,
 th,
 td {
-  border: 1px solid whitesmoke;
-  padding: 4px;
+  border: 1px solid rgba(245, 245, 245, 0.678);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+thead {
+  font-weight: 800;
+  font-size: 18px;
+  text-transform: capitalize;
+
+}
+
+th {
+  font-weight: 600;
+  font-size: 16px;
+  min-width: 70px;
+}
+
+td {
+  font-size: 14px;
+}
+
+a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+hr {
+  margin: 10px 0;
+}
+
+li {
+  margin: 6px 0;
+  list-style-type: disc;
+}
+
+p {
+  margin: 4px 0;
+}
+
+@media (max-width: 640px) {
+
+  thead {
+    font-size: 14px;
+    min-width: 100px;
+  }
+
+  th {
+    font-size: 12px;
+  }
+
+  td {
+    font-size: 10px;
+  }
+
+  li {
+    font-size: 15px;
+  }
+
+  p {
+    font-size: 15px;
+  }
 }
