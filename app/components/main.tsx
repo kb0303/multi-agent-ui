@@ -7,6 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeExternalLinks from "rehype-external-links";
 import Image from "next/image";
+import gsap from "gsap";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type StepStatus = "idle" | "running" | "done" | "error";
@@ -150,6 +151,41 @@ export default function Main() {
   const stepStartRef = useRef<Record<string, number>>({});
   const resultsRef = useRef<HTMLDivElement>(null);
   const [model, setModel] = useState("llama-3.3-70b-versatile");
+
+  const heroRef = useRef(null);
+  const badgeRef = useRef(null);
+  const titleRef = useRef(null);
+  const descRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+
+    tl.fromTo(
+      badgeRef.current,
+      { opacity: 0, y: 20 },
+      { opacity: 1, y: 0, duration: 0.6 }
+    )
+      .fromTo(
+        titleRef.current,
+        { opacity: 0, y: 40 },
+        { opacity: 1, y: 0, duration: 0.8 },
+        "-=0.3"
+      )
+      .fromTo(
+        descRef.current,
+        { opacity: 0, y: 30 },
+        { opacity: 1, y: 0, duration: 0.7 },
+        "-=0.5"
+      )
+      .fromTo(
+        inputRef.current,
+        { opacity: 0, y: 30, scale: 0.98 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.7 },
+        "-=0.5"
+      );
+
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -314,22 +350,22 @@ export default function Main() {
       <main className="mx-auto px-6 pb-20">
 
         {/* ── Hero ── */}
-        <section className="text-center pt-[60px] md:pt-[72px] pb-[40px] lg:pb-[56px] animate-[fadeIn_0.5s_ease]">
-          <div className="text-[12px] tracking-[0.16em] uppercase text-[#f59e0b] font-semibold mb-4">
+        <section ref={heroRef} className="text-center pt-[60px] md:pt-[72px] pb-[40px] lg:pb-[56px] animate-[fadeIn_0.5s_ease]">
+          <div ref={badgeRef} className="text-[12px] tracking-[0.16em] uppercase text-[#f59e0b] font-semibold mb-4">
             AI-Powered Research Pipeline
           </div>
-          <h1 className="font-['Syne',_sans-serif] text-[clamp(36px,5vw,56px)] font-bold leading-[1.12] tracking-[-0.03em] mb-5 bg-gradient-to-br from-[#f1f1f9] to-[#9090c0] bg-clip-text text-transparent">
+          <h1 ref={titleRef} className="font-['Syne',_sans-serif] text-[clamp(36px,5vw,56px)] font-bold leading-[1.12] tracking-[-0.03em] mb-5 bg-gradient-to-br from-[#f1f1f9] to-[#9090c0] bg-clip-text text-transparent">
             What do you want to
             <br className="hidden lg:block" />
             research today?
           </h1>
-          <div className="text-[16px] text-[#6b7280] leading-[1.7] max-w-[600px] mx-auto mb-10">
+          <div ref={descRef} className="text-[16px] text-[#6b7280] leading-[1.7] max-w-[600px] mx-auto mb-10">
             Enter any topic and watch four specialized AI agents collaborate — searching,
             scraping, writing, and critiquing — to deliver a thorough research report.
           </div>
 
           {/* Input */}
-          <div className="relative max-w-[720px] mx-auto">
+          <div ref={inputRef} className="relative max-w-[720px] mx-auto">
 
             {/* Textarea */}
             <textarea
@@ -375,7 +411,7 @@ export default function Main() {
               <button
                 className={`ml-2 bg-[#f59e0b] text-[#0a0800]
       rounded-[10px] px-4 py-[8px] text-[13px] font-semibold
-      transition-all ${!topic.trim() || isRunning
+      transition-all duration-200 ${!topic.trim() || isRunning
                     ? "opacity-50 cursor-not-allowed"
                     : "hover:brightness-110 cursor-pointer"
                   }`}
