@@ -315,18 +315,18 @@ export default function Main() {
 
         {/* ── Hero ── */}
         <section className="text-center pt-[60px] md:pt-[72px] pb-[40px] lg:pb-[56px] animate-[fadeIn_0.5s_ease]">
-          <p className="text-[12px] tracking-[0.16em] uppercase text-[#f59e0b] font-semibold mb-4">
+          <div className="text-[12px] tracking-[0.16em] uppercase text-[#f59e0b] font-semibold mb-4">
             AI-Powered Research Pipeline
-          </p>
+          </div>
           <h1 className="font-['Syne',_sans-serif] text-[clamp(36px,5vw,56px)] font-bold leading-[1.12] tracking-[-0.03em] mb-5 bg-gradient-to-br from-[#f1f1f9] to-[#9090c0] bg-clip-text text-transparent">
             What do you want to
             <br className="hidden lg:block" />
             research today?
           </h1>
-          <p className="text-[16px] text-[#6b7280] leading-[1.7] max-w-[600px] mx-auto mb-10">
+          <div className="text-[16px] text-[#6b7280] leading-[1.7] max-w-[600px] mx-auto mb-10">
             Enter any topic and watch four specialized AI agents collaborate — searching,
             scraping, writing, and critiquing — to deliver a thorough research report.
-          </p>
+          </div>
 
           {/* Input */}
           <div className="relative max-w-[720px] mx-auto">
@@ -382,12 +382,16 @@ export default function Main() {
                 onClick={runPipeline}
                 disabled={!topic.trim() || isRunning}
               >
-                {isRunning ? "Running Research..." :
+                {isRunning ? (
+                  <div className="flex items-center justify-center">
+                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                  </div>
+                ) : (
                   <div className="flex items-center justify-center">
                     <span className="hidden md:block">Research</span>
                     <ChevronRight className="inline w-4 h-4" />
                   </div>
-                }
+                )}
               </button>
 
             </div>
