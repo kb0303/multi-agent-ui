@@ -225,7 +225,7 @@ export default function Main() {
     }
 
     try {
-      const res = await fetch(`${process.env.VITE_API_URL}/research`, {
+      const res = await fetch(`${process.env.NEXT_API_URL}/research`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic, model }),
@@ -510,9 +510,9 @@ export default function Main() {
                 <strong>Pipeline Error</strong>
                 <p className="mt-[6px] text-[14px] opacity-85">{error}</p>
                 <p className="mt-[6px] text-[13px] text-[#f87171]">
-                  Make sure your FastAPI server is running at{" "}
+                  Make sure your FastAPI server is running at{"   "}
                   <code className="bg-[#2a1515] px-[6px] py-[1px] rounded">
-                    {`${process.env.VITE_API_URL}`}
+                    {`${process.env.NEXT_API_URL}`}
                   </code>
                 </p>
               </div>
