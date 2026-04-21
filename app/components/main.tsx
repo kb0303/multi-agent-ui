@@ -67,6 +67,14 @@ const INITIAL_STEPS: PipelineStep[] = [
     status: "idle",
   },
   {
+    id: "debate",
+    label: "Debate Chain",
+    emoji: "💬",
+    description: "Facilitates a structured debate on the topic",
+    detail: "Presents multiple perspectives and arguments, encouraging critical thinking and nuanced discussion by providing optimist and sketic views.",
+    status: "idle",
+  },
+  {
     id: "critic",
     label: "Critic Chain",
     emoji: "🧐",
@@ -151,12 +159,36 @@ export default function Main() {
   const stepStartRef = useRef<Record<string, number>>({});
   const resultsRef = useRef<HTMLDivElement>(null);
   const [model, setModel] = useState("llama-3.3-70b-versatile");
+  const [liveStatus, setLiveStatus] = useState("");
+  const [liveReport, setLiveReport] = useState("");
 
   const heroRef = useRef(null);
   const badgeRef = useRef(null);
   const titleRef = useRef(null);
   const descRef = useRef(null);
   const inputRef = useRef(null);
+
+  const evtSourceRef = useRef<EventSource | null>(null);
+
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
+
+  // Auto-scroll when liveReport changes — only if user is at bottom
+  useEffect(() => {
+    const el = terminalRef.current;
+    if (!el) return;
+    if (isAtBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [liveReport]);
+
+  // Track whether user is near the bottom
+  const handleTerminalScroll = () => {
+    const el = terminalRef.current;
+    if (!el) return;
+    const threshold = 60; // px from bottom
+    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+  };
 
   useEffect(() => {
     const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
@@ -209,7 +241,7 @@ export default function Main() {
           ? {
             ...s,
             status,
-            result,
+            result: result ?? s.result,   // keep existing if not provided
             duration: stepStartRef.current[id]
               ? Date.now() - stepStartRef.current[id]
               : undefined,
@@ -219,8 +251,24 @@ export default function Main() {
     );
   };
 
+  useEffect(() => {
+    return () => {
+      if (evtSourceRef.current) {
+        evtSourceRef.current.close();
+        evtSourceRef.current = null;
+      }
+    };
+  }, []);
+
   const runPipeline = async () => {
+    if (evtSourceRef.current) {
+      evtSourceRef.current.close();
+      evtSourceRef.current = null;
+    }
     if (!topic.trim() || isRunning) return;
+
+    setLiveReport("");
+    setLiveStatus("");
 
     resetPipeline();
     setIsRunning(true);
@@ -231,49 +279,85 @@ export default function Main() {
       setElapsedTime(Math.floor((Date.now() - startTimeRef.current) / 1000));
     }, 1000);
 
-    // ── Optimistic step animation while API runs ──
-    const STEP_DURATIONS = [8000, 15000, 12000, 8000];
-    const stepIds = ["search", "reader", "writer", "critic"];
-
-    stepStartRef.current["search"] = Date.now();
-    setStepStatus("search", "running");
-
-    const stepTimers: ReturnType<typeof setTimeout>[] = [];
-    let cumulative = STEP_DURATIONS[0];
-
-    for (let i = 1; i < stepIds.length; i++) {
-      const id = stepIds[i];
-      const prevId = stepIds[i - 1];
-      const delay = cumulative;
-      cumulative += STEP_DURATIONS[i];
-
-      stepTimers.push(
-        setTimeout(() => {
-          stepStartRef.current[id] = Date.now();
-          setSteps((prev) =>
-            prev.map((s) => {
-              if (s.id === prevId && s.status === "running") return { ...s, status: "done" };
-              if (s.id === id) return { ...s, status: "running" };
-              return s;
-            })
-          );
-        }, delay)
-      );
-    }
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
     if (!API_URL) {
       throw new Error("NEXT_PUBLIC_API_URL is missing");
     }
+
+    // Session
+    const sessionId = crypto.randomUUID();
+
+    const evtSource = new EventSource(
+      `${API_URL}/stream/${sessionId}`
+    );
+
+    evtSourceRef.current = evtSource;
+
+    evtSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      switch (data.type) {
+
+        case "log":
+          setLiveReport(prev => prev + data.data);
+          break;
+
+        case "data_chunk":
+          setLiveReport(prev => prev + data.data);   // show in terminal
+          setSteps(prev =>                            // also accumulate in step card
+            prev.map(s =>
+              s.id === data.step
+                ? { ...s, result: (s.result ?? "") + data.data }
+                : s
+            )
+          );
+          break;
+
+        case "pipeline_start":
+          setLiveStatus("🚀 Pipeline started");
+          break;
+
+        case "step_start":
+          setLiveStatus(`⚙️ ${data.step} started`);
+          stepStartRef.current[data.step] = Date.now();
+          setStepStatus(data.step, "running");
+          break;
+
+        case "step_end":
+          setLiveStatus(`✅ ${data.step} completed`);
+          setStepStatus(data.step, "done");
+          break;
+
+        case "data":
+          setSteps((prev) =>
+            prev.map((s) =>
+              s.id === data.step
+                ? { ...s, result: data.data }
+                : s
+            )
+          );
+          break;
+
+        case "done":
+          setLiveStatus("🎉 Pipeline completed");
+          evtSource.close();
+          break;
+      }
+    };
+
+    evtSource.onerror = () => {
+      evtSource.close();
+      evtSourceRef.current = null;
+    };
+
     try {
       const res = await fetch(`${API_URL}/research`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, model }),
+        body: JSON.stringify({ topic, model, session_id: sessionId }),
       });
-
-      stepTimers.forEach((t) => clearTimeout(t));
 
       // if (!res.ok) throw new Error(`Server error ${res.status}: ${res.statusText}`);
       const data: ResearchResult = await res.json();
@@ -295,18 +379,21 @@ export default function Main() {
         critic: Math.round(totalMs * 0.15),
       });
 
-      setSteps([
-        { ...INITIAL_STEPS[0], status: "done", result: data.search_results },
-        { ...INITIAL_STEPS[1], status: "done", result: data.scraped_content },
-        { ...INITIAL_STEPS[2], status: "done", result: data.report },
-        { ...INITIAL_STEPS[3], status: "done", result: data.feedback },
-      ]);
+      setSteps(prev => prev.map(s => {
+        switch (s.id) {
+          case "search": return { ...s, status: "done", result: data.search_results };
+          case "reader": return { ...s, status: "done", result: data.scraped_content };
+          case "writer": return { ...s, status: "done", result: data.report };
+          case "debate": return { ...s, status: "done", result: data.debate };
+          case "critic": return { ...s, status: "done", result: data.feedback };
+          default: return s;
+        }
+      }));
       setResult(data);
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth" }), 300);
 
     } catch (err: any) {
 
-      stepTimers.forEach((t) => clearTimeout(t));
       setError(err);
       setSteps((prev) =>
         prev.map((s) => (s.status === "running" ? { ...s, status: "error" } : s))
@@ -351,21 +438,21 @@ export default function Main() {
 
         {/* ── Hero ── */}
         <section ref={heroRef} className="text-center pt-[60px] md:pt-[72px] pb-[40px] lg:pb-[56px] animate-[fadeIn_0.5s_ease]">
-          <div ref={badgeRef} className="text-[12px] tracking-[0.16em] uppercase text-[#f59e0b] font-semibold mb-4">
+          <div ref={badgeRef} className="text-[12px] 2xl:text-[14px] tracking-[0.16em] uppercase text-[#f59e0b] font-semibold mb-4">
             AI-Powered Research Pipeline
           </div>
-          <h1 ref={titleRef} className="font-['Syne',_sans-serif] text-[clamp(36px,5vw,56px)] font-bold leading-[1.12] tracking-[-0.03em] mb-5 bg-gradient-to-br from-[#f1f1f9] to-[#9090c0] bg-clip-text text-transparent">
+          <h1 ref={titleRef} className="font-['Syne',_sans-serif] text-[clamp(36px,5vw,58px)] font-bold leading-[1.12] tracking-[-0.03em] mb-5 bg-gradient-to-br from-[#f1f1f9] to-[#9090c0] bg-clip-text text-transparent">
             What do you want to
             <br className="hidden lg:block" />
             research today?
           </h1>
-          <div ref={descRef} className="text-[16px] text-[#6b7280] leading-[1.7] max-w-[600px] mx-auto mb-10">
+          <div ref={descRef} className="text-[16px] 2xl:text-[19px] text-[#6b7280] leading-[1.7] max-w-[600px] 2xl:max-w-[800px] mx-auto mb-10">
             Enter any topic and watch four specialized AI agents collaborate — searching,
             scraping, writing, and critiquing — to deliver a thorough research report.
           </div>
 
           {/* Input */}
-          <div ref={inputRef} className="relative max-w-[720px] mx-auto">
+          <div ref={inputRef} className="relative max-w-[720px] 2xl:max-w-[920px] mx-auto">
 
             {/* Textarea */}
             <textarea
@@ -558,6 +645,7 @@ export default function Main() {
                   </div>
                 </div>
               ))}
+              {/* <code>{liveStatus}</code> */}
             </div>
 
             {error && (
@@ -585,6 +673,35 @@ export default function Main() {
             )}
           </section>
         )}
+
+        <div
+          ref={terminalRef}
+          onScroll={handleTerminalScroll}
+          className="bg-[#05050a] border border-[#1f1f2e] rounded-[12px] overflow-y-scroll max-h-[300px] my-6"
+        >
+
+          {/* Terminal header */}
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#1a1a2e] bg-[#0b0b14] my-6 sticky top-0">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+            <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
+            <span className="ml-3 text-[11px] text-[#6b7280] font-mono">
+              research-engine.stream
+            </span>
+          </div>
+
+          {/* Terminal body */}
+          <div className="p-4 font-['JetBrains_Mono'] text-[13px] leading-[1.8] text-[#d1d5db] whitespace-pre-wrap">
+
+
+            {cleanAIOutput(liveReport)}
+
+            {/* blinking cursor */}
+            {isRunning && (
+              <span className="inline-block w-[8px] h-[14px] bg-[#f59e0b] ml-1 animate-pulse" />
+            )}
+          </div>
+        </div>
 
         {/* ── Results ── */}
         {result && (
@@ -657,7 +774,6 @@ export default function Main() {
                     </div>
                     <CopyButton text={cleanAIOutput(result.report)} />
                   </div>
-                  {/* <SimpleMarkdown text={result.report} /> */}
                   <div className="prose prose-invert max-w-none break-words">
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
@@ -734,7 +850,7 @@ export default function Main() {
               )}
 
               {activeTab === "debate" && (() => {
-                const { optimist, skeptic } = parseDebate(result.debate);
+                const { optimist, skeptic } = parseDebate(cleanAIOutput(result.debate));
 
                 return (
                   <div>
@@ -760,7 +876,7 @@ export default function Main() {
                         </div>
                         <div className="text-[#a7f3d0] text-[14px] leading-[1.7]">
                           <div className="prose prose-invert max-w-none break-words">
-                            <ReactMarkdown>{cleanAIOutput(optimist)}</ReactMarkdown>
+                            <ReactMarkdown>{optimist}</ReactMarkdown>
                           </div>
                         </div>
                       </div>
@@ -773,7 +889,7 @@ export default function Main() {
                         </div>
                         <div className="text-[#fca5a5] text-[14px] leading-[1.7]">
                           <div className="prose prose-invert max-w-none break-words">
-                            <ReactMarkdown>{cleanAIOutput(skeptic)}</ReactMarkdown>
+                            <ReactMarkdown>{skeptic}</ReactMarkdown>
                           </div>
                         </div>
                       </div>
