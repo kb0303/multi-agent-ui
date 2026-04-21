@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { parseDebate, parseTextWithLinks } from "../utils/TextParser";
-import { ChevronRight } from "lucide-react";
+import { parseDebate } from "../utils/TextParser";
+import { ChevronDown, ChevronRight, Copy, Code2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeExternalLinks from "rehype-external-links";
 import Image from "next/image";
 import gsap from "gsap";
+import { FaGithub } from "react-icons/fa";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type StepStatus = "idle" | "running" | "done" | "error";
@@ -108,9 +109,10 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="text-[12px] font-['JetBrains_Mono',_monospace] bg-[#13131f] border border-[#2a2a3e] rounded-lg text-[#9090b0] px-3 py-[5px] cursor-pointer transition-all shrink-0 hover:border-[#4a4a5e] hover:text-[#c0c0d0]"
+      className="text-[12px] font-['JetBrains_Mono',_monospace] bg-[#13131f] border border-[#2a2a3e] rounded-lg text-[#9090b0] px-3 py-[5px] cursor-pointer transition-all shrink-0 hover:border-[#4a4a5e] hover:text-[#c0c0d0] duration-100"
+      title={`${copied ? "✓ Copied" : "Copy"}`}
     >
-      {copied ? "✓ Copied" : "Copy"}
+      {copied ? "✓ Copied" : <Copy className="w-5 h-5" />}
     </button>
   );
 }
@@ -158,15 +160,18 @@ export default function Main() {
   const startTimeRef = useRef<number>(0);
   const stepStartRef = useRef<Record<string, number>>({});
   const resultsRef = useRef<HTMLDivElement>(null);
-  const [model, setModel] = useState("llama-3.3-70b-versatile");
+  const [model, setModel] = useState("qwen/qwen3-32b");
   const [liveStatus, setLiveStatus] = useState("");
   const [liveReport, setLiveReport] = useState("");
+  const [terminalOpen, setTerminalOpen] = useState(true);
 
   const heroRef = useRef(null);
   const badgeRef = useRef(null);
   const titleRef = useRef(null);
   const descRef = useRef(null);
   const inputRef = useRef(null);
+  const examplesRef = useRef(null);
+
 
   const evtSourceRef = useRef<EventSource | null>(null);
 
@@ -201,19 +206,25 @@ export default function Main() {
       .fromTo(
         titleRef.current,
         { opacity: 0, y: 40 },
-        { opacity: 1, y: 0, duration: 0.8 },
+        { opacity: 1, y: 0, duration: 0.7 },
         "-=0.3"
       )
       .fromTo(
         descRef.current,
         { opacity: 0, y: 30 },
-        { opacity: 1, y: 0, duration: 0.7 },
+        { opacity: 1, y: 0, duration: 0.8 },
         "-=0.5"
       )
       .fromTo(
         inputRef.current,
         { opacity: 0, y: 30, scale: 0.98 },
-        { opacity: 1, y: 0, scale: 1, duration: 0.7 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.8 },
+        "-=0.5"
+      )
+      .fromTo(
+        examplesRef.current,
+        { opacity: 0, y: 30, scale: 0.98 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.8 },
         "-=0.5"
       );
 
@@ -270,15 +281,12 @@ export default function Main() {
     setLiveReport("");
     setLiveStatus("");
 
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = 0;
+    }
+
     resetPipeline();
     setIsRunning(true);
-    startTimeRef.current = Date.now();
-    stepStartRef.current = {};
-
-    timerRef.current = setInterval(() => {
-      setElapsedTime(Math.floor((Date.now() - startTimeRef.current) / 1000));
-    }, 1000);
-
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -368,7 +376,6 @@ export default function Main() {
           ...data,
         };
       }
-      // const data: ResearchResult = await res.json();
 
       const now = Date.now();
       const totalMs = now - startTimeRef.current;
@@ -411,25 +418,65 @@ export default function Main() {
   const doneCount = steps.filter((s) => s.status === "done").length;
   const progress = (doneCount / steps.length) * 100;
 
+  const getFeedbackScore = (feedback: string) => {
+    const match = feedback?.match(/Score:\s*([0-9]+(?:\.[0-9]+)?\/10)/i);
+    return match ? match[1] : "N/A";
+  };
+
+  const frontendRepo = "https://github.com/kb0303/multi-agent-ui";
+  const backendRepo = "https://github.com/kb0303/multi-agent-system";
+
+  const openRepos = () => {
+    const win1 = window.open(frontendRepo, "_blank", "noopener,noreferrer");
+    const win2 = window.open(backendRepo, "_blank", "noopener,noreferrer");
+
+    if (!win1 || !win2) {
+      alert("Please allow popups for this site to open both repositories.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#080810] text-[#e2e2f0] font-['Inter',_sans-serif]">
 
       {/* ── Header ── */}
       <header className="border-b border-[#1a1a2e] bg-[rgba(8,8,16,0.95)] backdrop-blur-[12px] sticky top-0 z-[100]">
-        <div className="mx-auto px-4 md:px-8 py-[14px] flex items-center justify-between">
+        <div className="mx-auto px-4 md:px-8 py-[14px] flex items-center justify-between gap-3">
+
+          {/* Left */}
           <div className="flex items-center gap-[10px]">
             <span className="text-[22px] text-[#f59e0b]">⬡</span>
             <span className="font-['Syne',_sans-serif] font-bold text-[16.5px] md:text-[18px] tracking-[-0.02em] text-[#f1f1f9]">
               Research
             </span>
           </div>
-          <div className="flex gap-2">
-            <span className="text-[10px] md:text-[11px] font-medium px-[10px] py-[3px] rounded-[20px] bg-[#13131f] border border-[#2a2a3e] text-[#9090b0] tracking-[0.04em] uppercase">
+
+          {/* Right */}
+          <div className="flex items-center gap-2">
+
+            <span className="hidden md:flex text-[10px] md:text-[11px] font-medium px-[10px] py-[3px] rounded-[20px] bg-[#13131f] border border-[#2a2a3e] text-[#9090b0] tracking-[0.04em] uppercase">
               Multi-Agent Pipeline
             </span>
-            {/* <span className="text-[11px] font-medium px-[10px] py-[3px] rounded-[20px] bg-[#13131f] border border-[#2a2a3e] text-[#9090b0] tracking-[0.04em] uppercase">
-              4 Agents
-            </span> */}
+
+            <button
+              onClick={openRepos}
+              className="group relative overflow-hidden flex items-center gap-2 px-4 py-[8px] rounded-[12px]
+        bg-gradient-to-r from-[#17172a] to-[#10101b]
+        border border-[#2a2a3e]
+        text-[#e2e2f0]
+        text-[13px] font-semibold
+        transition-all duration-300
+        hover:border-[#f59e0b]
+        hover:shadow-[0_0_0_1px_rgba(245,158,11,0.15),0_8px_28px_rgba(245,158,11,0.08)]
+        hover:-translate-y-[1px]
+        active:translate-y-0 cursor-pointer"
+            >
+              <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition duration-300 bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+
+              <FaGithub className="w-4 h-4" />
+              <span className="opacity-85 hidden sm:block group-hover:opacity-100 transition duration-100">Source Code</span>
+              <Code2 className="w-4 h-4 text-[#9090b0] group-hover:text-[#f59e0b] transition" />
+            </button>
+
           </div>
         </div>
       </header>
@@ -438,21 +485,21 @@ export default function Main() {
 
         {/* ── Hero ── */}
         <section ref={heroRef} className="text-center pt-[60px] md:pt-[72px] pb-[40px] lg:pb-[56px] animate-[fadeIn_0.5s_ease]">
-          <div ref={badgeRef} className="text-[12px] 2xl:text-[14px] tracking-[0.16em] uppercase text-[#f59e0b] font-semibold mb-4">
+          <div ref={badgeRef} className="text-[12px] 2xl:text-[14px] tracking-[0.16em] uppercase text-[#f59e0b] font-semibold mb-4 opacity-0">
             AI-Powered Research Pipeline
           </div>
-          <h1 ref={titleRef} className="font-['Syne',_sans-serif] text-[clamp(36px,5vw,58px)] font-bold leading-[1.12] tracking-[-0.03em] mb-5 bg-gradient-to-br from-[#f1f1f9] to-[#9090c0] bg-clip-text text-transparent">
+          <h1 ref={titleRef} className="font-['Syne',_sans-serif] text-[clamp(36px,5vw,58px)] font-bold leading-[1.12] tracking-[-0.03em] mb-5 bg-gradient-to-br from-[#f1f1f9] to-[#9090c0] bg-clip-text text-transparent opacity-0">
             What do you want to
             <br className="hidden lg:block" />
-            research today?
+            <span className="ml-2 lg:ml-0">research today?</span>
           </h1>
-          <div ref={descRef} className="text-[16px] 2xl:text-[19px] text-[#6b7280] leading-[1.7] max-w-[600px] 2xl:max-w-[800px] mx-auto mb-10">
+          <div ref={descRef} className="text-[16px] 2xl:text-[19px] text-[#6b7280] leading-[1.7] max-w-[600px] 2xl:max-w-[800px] mx-auto mb-10 opacity-0">
             Enter any topic and watch four specialized AI agents collaborate — searching,
             scraping, writing, and critiquing — to deliver a thorough research report.
           </div>
 
           {/* Input */}
-          <div ref={inputRef} className="relative max-w-[720px] 2xl:max-w-[920px] mx-auto">
+          <div ref={inputRef} className="relative max-w-[720px] 2xl:max-w-[920px] mx-auto opacity-0">
 
             {/* Textarea */}
             <textarea
@@ -484,8 +531,8 @@ export default function Main() {
         hover:border-[#4a4a5e] transition-all
         focus:outline-none"
                 >
-                  <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile</option>
-                  <option value="llama-3.1-8b-instant">llama-3.1-8b-instant</option>
+                  {/* <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile</option> */}
+                  {/* <option value="llama-3.1-8b-instant">llama-3.1-8b-instant</option> */}
                   {/* <option value="meta-llama/llama-4-scout-17b-16e-instruct">meta-llama/llama-4-scout-17b-16e-instruct</option> */}
                   <option value="qwen/qwen3-32b">qwen/qwen3-32b</option>
                   <option value="openai/gpt-oss-120b">openai/gpt-oss-120b</option>
@@ -523,7 +570,7 @@ export default function Main() {
 
         {/* {(!isRunning || !result || !error) */}
         {/* Examples */}
-        <div className="flex items-start gap-3 max-w-[720px] mx-auto flex-wrap justify-center">
+        <div ref={examplesRef} className="flex items-start gap-3 max-w-[720px] mx-auto flex-wrap justify-center opacity-0">
           <span className="text-[12px] text-[#6b7280] tracking-[0.04em] uppercase pt-[6px] shrink-0">
             Try an example:
           </span>
@@ -674,34 +721,47 @@ export default function Main() {
           </section>
         )}
 
-        <div
-          ref={terminalRef}
-          onScroll={handleTerminalScroll}
-          className="bg-[#05050a] border border-[#1f1f2e] rounded-[12px] overflow-y-scroll max-h-[300px] my-6"
-        >
 
-          {/* Terminal header */}
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#1a1a2e] bg-[#0b0b14] my-6 sticky top-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
-            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
-            <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
-            <span className="ml-3 text-[11px] text-[#6b7280] font-mono">
-              research-engine.stream
-            </span>
+        {(isRunning || liveReport) && (
+          <div className="my-6 mx-auto w-full">
+            <button
+              onClick={() => setTerminalOpen(prev => !prev)}
+              className="w-full flex items-center justify-between px-4 py-2 bg-[#0b0b14] border border-[#1f1f2e] rounded-t-[12px] rounded-b-[12px] data-[open=true]:rounded-b-none transition-all duration-100 cursor-pointer hover:border-[#4a4a5e]"
+              data-open={terminalOpen}
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                <span className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+                <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                <span className="ml-3 text-[11px] text-[#6b7280] font-mono">
+                  research-engine.stream
+                </span>
+              </div>
+              <span className={`text-[11px] text-[#6b7280] font-mono transition-transform duration-400 ${terminalOpen ? "rotate-180" : "rotate-0"}`}>
+                <ChevronDown />
+              </span>
+            </button>
+
+            {/* Accordion Body */}
+            <div
+              className="overflow-hidden transition-[max-height] duration-300 ease-in-out border-x border-b border-[#1f1f2e] rounded-b-[12px]"
+              style={{ maxHeight: terminalOpen ? "300px" : "0px" }}
+            >
+              <div
+                ref={terminalRef}
+                onScroll={handleTerminalScroll}
+                className="bg-[#05050a] overflow-y-scroll max-h-[300px]"
+              >
+                <div className="p-4 font-['JetBrains_Mono'] text-[13px] leading-[1.8] text-[#d1d5db] whitespace-pre-wrap">
+                  {cleanAIOutput(liveReport)}
+                  {isRunning && (
+                    <span className="inline-block w-[8px] h-[14px] bg-[#f59e0b] ml-1 animate-pulse" />
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-
-          {/* Terminal body */}
-          <div className="p-4 font-['JetBrains_Mono'] text-[13px] leading-[1.8] text-[#d1d5db] whitespace-pre-wrap">
-
-
-            {cleanAIOutput(liveReport)}
-
-            {/* blinking cursor */}
-            {isRunning && (
-              <span className="inline-block w-[8px] h-[14px] bg-[#f59e0b] ml-1 animate-pulse" />
-            )}
-          </div>
-        </div>
+        )}
 
         {/* ── Results ── */}
         {result && (
@@ -722,12 +782,12 @@ export default function Main() {
             </div>
 
             {/* Stats row */}
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3 mb-7">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(134px,1fr))] gap-3 mb-7">
               {[
                 { label: "Report Length", value: `${wordCount(result.report).toLocaleString()} words` },
                 { label: "Sources Scraped", value: "1 deep source" },
                 { label: "Search Snippets", value: `${result.search_results.split("\n").length} lines` },
-                { label: "Feedback Score", value: "See feedback →" },
+                { label: "Feedback Score", value: getFeedbackScore(result.feedback) },
               ].map((stat) => (
                 <div
                   key={stat.label}
@@ -811,7 +871,7 @@ export default function Main() {
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <span className="text-[12px] font-['JetBrains_Mono',_monospace] text-[#6b7280] uppercase tracking-[0.08em]">
-                      Raw Search Agent Output
+                      Search Agent Output
                     </span>
                     <CopyButton text={cleanAIOutput(result.search_results)} />
                   </div>
@@ -833,7 +893,7 @@ export default function Main() {
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <span className="text-[12px] font-['JetBrains_Mono',_monospace] text-[#6b7280] uppercase tracking-[0.08em]">
-                      Raw Scraped Content
+                      Scraped Content
                     </span>
                     <CopyButton text={cleanAIOutput(result.scraped_content)} />
                   </div>
