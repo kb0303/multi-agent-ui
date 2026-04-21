@@ -9,6 +9,8 @@ import rehypeExternalLinks from "rehype-external-links";
 import Image from "next/image";
 import gsap from "gsap";
 import { FaGithub } from "react-icons/fa";
+import { TbFileTypeDocx } from "react-icons/tb";
+import { FaFilePdf } from "react-icons/fa6";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type StepStatus = "idle" | "running" | "done" | "error";
@@ -164,6 +166,8 @@ export default function Main() {
   const [liveStatus, setLiveStatus] = useState("");
   const [liveReport, setLiveReport] = useState("");
   const [terminalOpen, setTerminalOpen] = useState(true);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [downloadingDocx, setDownloadingDocx] = useState(false);
 
   const heroRef = useRef(null);
   const badgeRef = useRef(null);
@@ -427,12 +431,97 @@ export default function Main() {
   const backendRepo = "https://github.com/kb0303/multi-agent-system";
 
   const openRepos = () => {
-    const win1 = window.open(frontendRepo, "_blank", "noopener,noreferrer");
-    const win2 = window.open(backendRepo, "_blank", "noopener,noreferrer");
+    window.open(frontendRepo, "_blank", "noopener,noreferrer");
+    window.open(backendRepo, "_blank", "noopener,noreferrer");
+  };
 
-    if (!win1 || !win2) {
-      alert("Please allow popups for this site to open both repositories.");
+  const downloadPdf = async () => {
+    if (!result) return;
+
+    try {
+      setDownloadingPdf(true);
+
+      const res = await fetch("/api/export-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          topic,
+          report: result.report,
+          search_results: result.search_results,
+          scraped_content: result.scraped_content,
+          feedback: result.feedback,
+          debate: result.debate,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to generate PDF");
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${topic.slice(0, 40).replace(/[^\w\s-]/g, "").trim() || "research-report"}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to download PDF");
+    } finally {
+      setDownloadingPdf(false);
     }
+  };
+
+  const downloadDocx = async () => {
+    if (!result) return;
+
+    try {
+      setDownloadingDocx(true);
+
+      const res = await fetch("/api/export-docx", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          topic,
+          report: result.report,
+          search_results: result.search_results,
+          scraped_content: result.scraped_content,
+          feedback: result.feedback,
+          debate: result.debate,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to generate DOCX");
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${topic || "research-report"}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+      alert("DOCX download failed");
+    } finally {
+      setDownloadingDocx(false);
+    }
+
   };
 
   return (
@@ -736,6 +825,11 @@ export default function Main() {
                 <span className="ml-3 text-[11px] text-[#6b7280] font-mono">
                   research-engine.stream
                 </span>
+                {isRunning && (
+                  <div className="flex items-center justify-center">
+                    <div className="w-3 h-3 border-2 border-white/20 border-t-white/80 rounded-full animate-spin"></div>
+                  </div>
+                )}
               </div>
               <span className={`text-[11px] text-[#6b7280] font-mono transition-transform duration-400 ${terminalOpen ? "rotate-180" : "rotate-0"}`}>
                 <ChevronDown />
@@ -778,6 +872,31 @@ export default function Main() {
                   New Research
                 </button>
                 <CopyButton text={result.report} />
+
+                <button
+                  onClick={downloadPdf}
+                  disabled={downloadingPdf}
+                  className="text-[13px] border border-[#2a2a3e] hover:border-[#f59e0b] text-[#c0c0d0]/80 hover:text-[#f59e0b] rounded-[10px] px-3 py-[2px] font-semibold disabled:opacity-60 cursor-pointer transition-all duration-200"
+                  title="Export PDF file"
+                >
+                  {downloadingPdf ?
+                    <div className="flex items-center justify-center">
+                      <div className="w-4 h-4 border-2 border-white/20 border-t-white/90 rounded-full animate-spin"></div>
+                    </div>
+                    : <FaFilePdf className="w-5.5 h-5.5" />}
+                </button>
+                <button
+                  onClick={downloadDocx}
+                  disabled={downloadingDocx}
+                  className="text-[13px] border border-[#2a2a3e] hover:border-[#f59e0b] group text-[#c0c0d0]/80 hover:text-[#f59e0b] rounded-[10px] px-3 py-[2px] font-semibold disabled:opacity-60 cursor-pointer transition-all duration-200"
+                  title="Export DOCX file"
+                >
+                  {downloadingDocx ?
+                    <div className="flex items-center justify-center">
+                      <div className="w-4 h-4 border-2 border-white/20 border-t-white/90 rounded-full animate-spin"></div>
+                    </div>
+                    : <TbFileTypeDocx className="w-5.5 h-5.5" />}
+                </button>
               </div>
             </div>
 
