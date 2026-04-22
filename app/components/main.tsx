@@ -182,6 +182,18 @@ export default function Main() {
   const terminalRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  if (!API_URL) {
+    throw new Error("NEXT_PUBLIC_API_URL is missing");
+  }
+
+  useEffect(() => {
+    fetch(`${API_URL}`)
+      .then(res => res.json())
+      .then(data => console.log("Server awake:", data.status));
+  }, []);
+
   // Auto-scroll when liveReport changes — only if user is at bottom
   useEffect(() => {
     const el = terminalRef.current;
@@ -291,12 +303,6 @@ export default function Main() {
 
     resetPipeline();
     setIsRunning(true);
-
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-    if (!API_URL) {
-      throw new Error("NEXT_PUBLIC_API_URL is missing");
-    }
 
     // Session
     const sessionId = crypto.randomUUID();
