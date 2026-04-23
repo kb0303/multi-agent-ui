@@ -304,6 +304,13 @@ export default function Main() {
     resetPipeline();
     setIsRunning(true);
 
+    // Start timer
+    startTimeRef.current = Date.now();
+    timerRef.current = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      setElapsedTime(elapsed);
+    }, 100);
+
     // Session
     const sessionId = crypto.randomUUID();
 
