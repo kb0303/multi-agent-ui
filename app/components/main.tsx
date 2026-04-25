@@ -169,6 +169,8 @@ export default function Main() {
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [downloadingDocx, setDownloadingDocx] = useState(false);
 
+  const [serverAwake, setServerAwake] = useState(false);
+
   const heroRef = useRef(null);
   const badgeRef = useRef(null);
   const titleRef = useRef(null);
@@ -191,7 +193,10 @@ export default function Main() {
   useEffect(() => {
     fetch(`${API_URL}`)
       .then(res => res.json())
-      .then(data => console.log("Server awake:", data.status));
+      .then((data) => {
+        console.log("Server awake:", data.status);
+        setServerAwake(true);
+      });
   }, []);
 
   // Auto-scroll when liveReport changes — only if user is at bottom
@@ -699,7 +704,7 @@ export default function Main() {
               </h2>
               {isRunning && (
                 <span className="text-[13px] px-3 py-1 rounded-[20px] bg-[#1a1208] text-[#f59e0b] border border-[#f59e0b] font-['JetBrains_Mono',_monospace]">
-                  ⏱ {elapsedTime}s elapsed
+                  {serverAwake ? `⏱ ${elapsedTime}s elapsed` : "⏳ initialising server"}
                 </span>
               )}
               {result && (
