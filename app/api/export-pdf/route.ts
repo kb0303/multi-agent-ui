@@ -3,20 +3,20 @@ import puppeteer from "puppeteer";
 import { marked } from "marked";
 
 export async function POST(req: NextRequest) {
-    try {
-        const body = await req.json();
+  try {
+    const body = await req.json();
 
-        const {
-            topic,
-            report,
-            search_results,
-            scraped_content,
-            feedback,
-            debate,
-        } = body;
+    const {
+      topic,
+      report,
+      search_results,
+      scraped_content,
+      feedback,
+      debate,
+    } = body;
 
-        // Merge all markdown sections
-        const markdown = `
+    // Merging all markdown sections
+    const markdown = `
 # Research Report
 
 **Topic:** ${topic}
@@ -52,11 +52,11 @@ ${feedback}
 ${debate}
 `;
 
-        // Convert markdown -> HTML
-        const htmlContent = marked.parse(markdown);
+    // Convert markdown -> HTML
+    const htmlContent = marked.parse(markdown);
 
-        // Final styled HTML
-        const html = `
+    // Final styled HTML
+    const html = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -116,41 +116,41 @@ ${htmlContent}
 </html>
 `;
 
-        // Launch browser
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: ["--no-sandbox", "--disable-setuid-sandbox"],
-        });
+    // Launch browser
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
 
-        const page = await browser.newPage();
+    const page = await browser.newPage();
 
-        await page.setContent(html, {
-            waitUntil: "networkidle0",
-        });
+    await page.setContent(html, {
+      waitUntil: "networkidle0",
+    });
 
-        const pdf = await page.pdf({
-            format: "A4",
-            printBackground: true,
-            margin: {
-                top: "25px",
-                bottom: "25px",
-                left: "20px",
-                right: "20px",
-            },
-        });
+    const pdf = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: {
+        top: "25px",
+        bottom: "25px",
+        left: "20px",
+        right: "20px",
+      },
+    });
 
-        await browser.close();
+    await browser.close();
 
-        return new Response(Buffer.from(pdf), {
-            headers: {
-                "Content-Type": "application/pdf",
-                "Content-Disposition": `attachment; filename="research-report.pdf"`,
-            },
-        });
-    } catch (error) {
-        return Response.json(
-            { error: "PDF generation failed" },
-            { status: 500 }
-        );
-    }
+    return new Response(Buffer.from(pdf), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="research-report.pdf"`,
+      },
+    });
+  } catch (error) {
+    return Response.json(
+      { error: "PDF generation failed" },
+      { status: 500 }
+    );
+  }
 }

@@ -15,7 +15,7 @@ export const INITIAL_STEPS: PipelineStep[] = [
         label: "Search Agent",
         emoji: "🔍",
         description: "Scours the web for recent, reliable sources",
-        detail: "Uses DuckDuckGo & search APIs to find the most relevant and up-to-date information about your topic.",
+        detail: "Uses Tavily search API to find the most relevant and up-to-date information about your topic.",
         status: "idle",
     },
     {
