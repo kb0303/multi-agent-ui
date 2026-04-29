@@ -1,7 +1,7 @@
 import { PipelineStep } from "../types/research";
 
 export const EXAMPLE_TOPICS = [
-    "Impact of AI on software engineering jobs in 2025",
+    "Impact of AI on software engineering jobs in 2026",
     "Latest breakthroughs in quantum computing",
     "Climate change mitigation strategies",
     "Microbiome research and mental health",
